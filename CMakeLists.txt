@@ -2,7 +2,7 @@
 # Project setup and globals
 #-------------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.20)
 
 if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)
@@ -281,4 +281,10 @@ add_subdirectory(projects)
 # Finish with top-level Python bindings so it can handle additional deps.
 if(MLIR_ENABLE_BINDINGS_PYTHON)
   add_subdirectory(python)
+endif()
+
+# TorchMLIR CMake package. Last, so every library (incl. embedded StableHLO) is
+# defined; gated like the header install above.
+if(NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
+  add_subdirectory(cmake/modules)
 endif()
