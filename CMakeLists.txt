@@ -172,7 +172,11 @@ function(torch_mlir_target_includes target)
   # target, when present, is just used for compilation and does not
   # contribute to the interface properties.
   # TODO: Normalize this upstream.
-  target_include_directories(${target} PUBLIC ${_dirs})
+  # INSTALL_INTERFACE lets exported targets find their installed headers.
+  target_include_directories(${target} PUBLIC
+    ${_dirs}
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  )
   if(TARGET obj.${target})
     target_include_directories(obj.${target} PRIVATE ${_dirs})
   endif()

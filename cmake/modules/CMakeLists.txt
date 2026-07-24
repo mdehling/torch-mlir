@@ -1,5 +1,14 @@
-# Install the torch-mlir libraries into the TorchMLIRTargets export set. A
-# companion change generates the find_package(TorchMLIR) package from it.
+# Generate and install a CMake package so downstreams can use
+# find_package(TorchMLIR). Modeled on MLIR's own config generation.
+
+include(CMakePackageConfigHelpers)
+
+set(TORCH_MLIR_INSTALL_PACKAGE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/TorchMLIR"
+    CACHE STRING "TorchMLIR CMake package path, relative to install prefix")
+
+# torch-mlir has no version of its own; track LLVM, as MLIRConfigVersion does.
+set(TORCH_MLIR_VERSION
+    "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}")
 
 # All of torch-mlir's libraries (recorded in MLIR_ALL_LIBS by add_mlir_library)
 # are named TorchMLIR*.
@@ -76,3 +85,44 @@ install(TARGETS ${_export_targets}
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+#-------------------------------------------------------------------------------
+# Generate the package config, once for the build tree and once for the install
+# tree, so downstreams can find_package(TorchMLIR) against either.
+#-------------------------------------------------------------------------------
+set(torch_mlir_cmake_builddir "${TORCH_MLIR_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/cmake/TorchMLIR")
+
+# The version file is path-independent; generate once and reuse for both trees.
+write_basic_package_version_file(
+  "${torch_mlir_cmake_builddir}/TorchMLIRConfigVersion.cmake"
+  VERSION "${TORCH_MLIR_VERSION}"
+  COMPATIBILITY SameMajorVersion)
+
+# Build tree: targets and config point at the build/source locations.
+export(EXPORT TorchMLIRTargets
+  FILE "${torch_mlir_cmake_builddir}/TorchMLIRTargets.cmake")
+set(TORCH_MLIR_CONFIG_CODE "")
+set(TORCH_MLIR_CONFIG_INCLUDE_DIRS
+  "${TORCH_MLIR_SOURCE_DIR}/include;${TORCH_MLIR_BINARY_DIR}/include")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/TorchMLIRConfig.cmake.in"
+  "${torch_mlir_cmake_builddir}/TorchMLIRConfig.cmake"
+  @ONLY)
+
+# Install tree: the config computes its own prefix from its location (one ".."
+# per component of the package dir) so the package stays relocatable.
+install(EXPORT TorchMLIRTargets
+  FILE TorchMLIRTargets.cmake
+  DESTINATION "${TORCH_MLIR_INSTALL_PACKAGE_DIR}")
+string(REGEX REPLACE "[^/]+" ".." _tm_prefix_up "${TORCH_MLIR_INSTALL_PACKAGE_DIR}")
+set(TORCH_MLIR_CONFIG_CODE
+  "get_filename_component(TORCH_MLIR_INSTALL_PREFIX \"\${CMAKE_CURRENT_LIST_DIR}/${_tm_prefix_up}\" REALPATH)")
+set(TORCH_MLIR_CONFIG_INCLUDE_DIRS "\${TORCH_MLIR_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/TorchMLIRConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/TorchMLIRConfig.cmake"
+  @ONLY)
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/TorchMLIRConfig.cmake"
+  "${torch_mlir_cmake_builddir}/TorchMLIRConfigVersion.cmake"
+  DESTINATION "${TORCH_MLIR_INSTALL_PACKAGE_DIR}")

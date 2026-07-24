@@ -1,0 +1,34 @@
+# find_package(TorchMLIR) support. Generated in two forms (see the sibling
+# CMakeLists.txt): one in the build tree referring to build/source locations,
+# and a relocatable one for the install tree.
+
+@TORCH_MLIR_CONFIG_CODE@
+
+set(TORCH_MLIR_VERSION "@TORCH_MLIR_VERSION@")
+
+# Define the MLIR imported targets our targets file references.
+include(CMakeFindDependencyMacro)
+find_dependency(MLIR)
+
+# How torch-mlir was configured; check before using the optional targets these
+# gate (e.g. TorchMLIRTorchToTosa, TorchMLIRRefBackend).
+set(TORCH_MLIR_ENABLE_STABLEHLO @TORCH_MLIR_ENABLE_STABLEHLO@)
+set(TORCH_MLIR_ENABLE_TOSA @TORCH_MLIR_ENABLE_TOSA@)
+set(TORCH_MLIR_ENABLE_REFBACKEND @TORCH_MLIR_ENABLE_REFBACKEND@)
+
+set(TORCH_MLIR_INCLUDE_DIRS "@TORCH_MLIR_CONFIG_INCLUDE_DIRS@")
+set(TORCH_MLIR_EXPORTED_TARGETS "@TORCH_MLIR_EXPORTED_TARGETS@")
+
+if(NOT TARGET TorchMLIRTorchDialect)
+  include("${CMAKE_CURRENT_LIST_DIR}/TorchMLIRTargets.cmake")
+endif()
+
+# Also expose each TorchMLIR<Name> library as TorchMLIR::<Name>.
+foreach(_tm_lib IN LISTS TORCH_MLIR_EXPORTED_TARGETS)
+  string(REGEX REPLACE "^TorchMLIR" "" _tm_alias "${_tm_lib}")
+  if(TARGET ${_tm_lib} AND NOT TARGET TorchMLIR::${_tm_alias})
+    add_library(TorchMLIR::${_tm_alias} INTERFACE IMPORTED)
+    set_target_properties(TorchMLIR::${_tm_alias} PROPERTIES
+      INTERFACE_LINK_LIBRARIES "${_tm_lib}")
+  endif()
+endforeach()
